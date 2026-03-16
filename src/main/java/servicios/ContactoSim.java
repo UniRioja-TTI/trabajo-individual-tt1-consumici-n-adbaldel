@@ -1,78 +1,83 @@
 package servicios;
 
-import org.springframework.stereotype.Service;
-
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
-
+import com.tt1.utilidades.model.Solicitud;
+import com.tt1.utilidades.model.SolicitudResponse;
+import com.tt1.utilidades.model.ResultsResponse;
 import interfaces.InterfazContactoSim;
 import modelo.DatosSimulation;
 import modelo.DatosSolicitud;
 import modelo.Entidad;
+import org.springframework.stereotype.Service;
+import utilidades.ServicioConsumibleClient;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Service
-public class ContactoSim implements InterfazContactoSim
-{
+public class ContactoSim implements InterfazContactoSim {
+
+    /**
+     * Nombres de entidades que conoce el servidor.
+     * Actualizar si el servidor expone entidades distintas (consultable en Swagger UI).
+     */
     public static final List<String> NOMBRES_ENTIDADES = List.of("Entidad 1", "Entidad 2");
 
-    private Map<Integer, DatosSolicitud> solicitudes;
-    private Random random;
+    /**
+     * Nombre de usuario constante mientras no haya autenticación real.
+     * El enunciado de práctica 5 indica usar una cadena constante por ahora.
+     */
+    public static final String NOMBRE_USUARIO = "usuario";
 
-    public ContactoSim()
-    {
-        solicitudes = new HashMap<>();
-        random = new Random(); // Le insertaria una semilla en el constructor pero IntellIJ se queja de que
+    private final ServicioConsumibleClient client;
 
-        // Probablemente necesite una conexion a un simulador pasada como parametro pero no existe dicha clase
-        // en mi proyecto entonces lo dejo vacio
+    public ContactoSim(ServicioConsumibleClient client) {
+        this.client = client;
     }
 
     @Override
-    public int solicitarSimulation(DatosSolicitud sol)
-    {
-        int token = random.nextInt(10000);
+    public int solicitarSimulation(DatosSolicitud sol) {
+        // Construir el objeto Solicitud que espera el servidor
+        Solicitud solicitud = new Solicitud();
+        solicitud.setNombreEntidades(new ArrayList<>(NOMBRES_ENTIDADES));
 
-        solicitudes.put(token, sol);
+        // Mapear el Map<id, cantidad> interno a una lista ordenada por índice de entidad
+        List<Integer> cantidades = new ArrayList<>();
+        for (int i = 0; i < NOMBRES_ENTIDADES.size(); i++) {
+            cantidades.add(sol.getNums().getOrDefault(i + 1, 0));
+        }
+        solicitud.setCantidadesIniciales(cantidades);
 
-        return token;
+        SolicitudResponse response = client.solicitar(NOMBRE_USUARIO, solicitud);
+        if (response != null && Boolean.TRUE.equals(response.getDone())) {
+            return response.getTokenSolicitud();
+        }
+        return -1;
     }
 
     @Override
-    public List<Entidad> getEntities()
-    {
+    public DatosSimulation descargarDatos(int ticket) {
+        ResultsResponse response = client.obtenerResultados(NOMBRE_USUARIO, ticket);
+        if (response != null && Boolean.TRUE.equals(response.getDone()) && response.getData() != null) {
+            return DatosSimulation.parse(response.getData());
+        }
+        return new DatosSimulation();
+    }
+
+    @Override
+    public List<Entidad> getEntities() {
         List<Entidad> entidades = new ArrayList<>();
-        Entidad entidad;
-
-        entidad = new Entidad();
-        entidad.setId(1);
-        entidad.setName("Entidad 1");
-        entidad.setDescripcion("Descripción 1");
-        entidades.add(entidad);
-
-        entidad = new Entidad();
-        entidad.setId(2);
-        entidad.setName("Entidad 2");
-        entidad.setDescripcion("Descripción 2");
-        entidades.add(entidad);
-
+        for (int i = 0; i < NOMBRES_ENTIDADES.size(); i++) {
+            Entidad e = new Entidad();
+            e.setId(i + 1);
+            e.setName(NOMBRES_ENTIDADES.get(i));
+            e.setDescripcion("Descripción de " + NOMBRES_ENTIDADES.get(i));
+            entidades.add(e);
+        }
         return entidades;
     }
 
     @Override
-    public boolean isValidEntityId()
-    {
-        // No entiendo que hace este método si no recibe un int entidad como parámetro
-        return true;
-    }
-
-    @Override
-    public DatosSimulation descargarDatos(int ticket)
-    {
-        DatosSimulation sim = new DatosSimulation();
-
-        return sim;
+    public boolean isValidEntityId(int id) {
+        return id >= 1 && id <= NOMBRES_ENTIDADES.size();
     }
 }

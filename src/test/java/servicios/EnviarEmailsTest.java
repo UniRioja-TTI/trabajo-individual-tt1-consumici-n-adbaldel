@@ -1,47 +1,33 @@
 package servicios;
 
 import modelo.Destinatario;
-import org.apache.juli.logging.Log;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class EnviarEmailsTest
-{
+class EnviarEmailsTest {
+
     private EnviarEmails enviarEmails;
 
-    // --- Arrange Before/After each test -------------------------------------------------------------------
-
     @BeforeEach
-    void setUp()
-    {
+    void setUp() {
         enviarEmails = new EnviarEmails(LoggerFactory.getLogger("EnviarEmailsTest"));
     }
 
     @AfterEach
-    void tearDown()
-    {
+    void tearDown() {
         enviarEmails = null;
     }
 
-    // --- --------------- -------------------------------------------------------------------
-    // --- TESTS UNITARIOS -------------------------------------------------------------------
-    // --- --------------- -------------------------------------------------------------------
-
-    // --- Test enviarEmail -------------------------------------------------------------------
-
     @Test
-    void enviarEmailExitoso()
-    {
+    void enviarEmailExitoso() {
         Destinatario dest = new Destinatario();
-        String email = "Hello World!";
-        boolean enviado;
+        String mensaje = "Hello World!";
 
-        enviado = enviarEmails.enviarEmail(dest, email);
+        boolean enviado = enviarEmails.enviarEmail(dest, mensaje);
 
         assertTrue(enviado);
     }

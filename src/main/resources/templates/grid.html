@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Resultados - Token <span th:text="${tok}"></span></title>
+    <style>
+        body { font-family: sans-serif; padding: 1rem; }
+        #grid-container {
+            display: inline-grid;
+            gap: 2px;
+            border: 1px solid #ccc;
+            padding: 4px;
+        }
+        .cell {
+            width: 28px;
+            height: 28px;
+            background-color: #eee;
+            border-radius: 3px;
+        }
+        #controls { margin: 1rem 0; display: flex; align-items: center; gap: 1rem; }
+        #frame-label { font-size: 0.9rem; color: #555; }
+        button { padding: 0.3rem 0.8rem; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h2>Simulación — Token: <span th:text="${tok}"></span></h2>
+
+    <div th:if="${numFrames == 0}">
+        <p>No hay datos disponibles para este token. Es posible que la simulación aún no haya terminado.</p>
+        <a th:href="@{/solicitud}">Volver</a>
+    </div>
+
+    <div th:if="${numFrames > 0}">
+        <div id="controls">
+            <button id="btn-play">⏸ Pausar</button>
+            <button id="btn-prev">← Anterior</button>
+            <button id="btn-next">Siguiente →</button>
+            <span id="frame-label">Frame 0 / <span th:text="${numFrames - 1}"></span></span>
+        </div>
+        <div id="grid-container"></div>
+    </div>
+
+    <script th:inline="javascript">
+        /*<![CDATA[*/
+        const frames    = /*[[${framesJson}]]*/ [];
+        const numCols   = /*[[${ancho}]]*/ 0;
+        const numRows   = /*[[${alto}]]*/ 0;
+        const numFrames = /*[[${numFrames}]]*/ 0;
+        /*]]>*/
+
+        const container  = document.getElementById('grid-container');
+        const frameLabel = document.getElementById('frame-label');
+        const maxFrame   = numFrames - 1;
+        let currentFrame = 0;
+        let playing = true;
+        let interval;
+
+        // Construir la cuadrícula de celdas vacías
+        container.style.gridTemplateColumns = `repeat(${numCols}, 28px)`;
+        const cells = [];
+        for (let y = 0; y < numRows; y++) {
+            for (let x = 0; x < numCols; x++) {
+                const div = document.createElement('div');
+                div.className = 'cell';
+                container.appendChild(div);
+                cells.push(div);
+            }
+        }
+
+        function renderFrame(t) {
+            const frame = frames[t] || [];
+            for (let y = 0; y < numRows; y++) {
+                const row = frame[y] || [];
+                for (let x = 0; x < numCols; x++) {
+                    const color = row[x] || '';
+                    cells[y * numCols + x].style.backgroundColor = color || '#eee';
+                }
+            }
+            frameLabel.textContent = `Frame ${t} / ${maxFrame}`;
+        }
+
+        function step() {
+            currentFrame = (currentFrame + 1) % numFrames;
+            renderFrame(currentFrame);
+        }
+
+        function startPlay() {
+            interval = setInterval(step, 500);
+            playing = true;
+            document.getElementById('btn-play').textContent = '⏸ Pausar';
+        }
+
+        function stopPlay() {
+            clearInterval(interval);
+            playing = false;
+            document.getElementById('btn-play').textContent = '▶ Reproducir';
+        }
+
+        document.getElementById('btn-play').addEventListener('click', () => {
+            playing ? stopPlay() : startPlay();
+        });
+        document.getElementById('btn-prev').addEventListener('click', () => {
+            stopPlay();
+            currentFrame = (currentFrame - 1 + numFrames) % numFrames;
+            renderFrame(currentFrame);
+        });
+        document.getElementById('btn-next').addEventListener('click', () => {
+            stopPlay();
+            currentFrame = (currentFrame + 1) % numFrames;
+            renderFrame(currentFrame);
+        });
+
+        renderFrame(0);
+        startPlay();
+    </script>
+</body>
+</html>

@@ -1,93 +1,120 @@
 package servicios;
 
+import com.tt1.utilidades.model.ResultsResponse;
+import com.tt1.utilidades.model.Solicitud;
+import com.tt1.utilidades.model.SolicitudResponse;
 import modelo.DatosSimulation;
 import modelo.DatosSolicitud;
 import modelo.Entidad;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import utilidades.ServicioConsumibleClient;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.when;
 
-class ContactoSimTest
-{
+@ExtendWith(MockitoExtension.class)
+class ContactoSimTest {
+
+    @Mock
+    private ServicioConsumibleClient mockClient;
+
     private ContactoSim contactoSim;
 
-    // --- Arrange Before/After each test -------------------------------------------------------------------
-
     @BeforeEach
-    void setUp()
-    {
-        contactoSim = new ContactoSim();
+    void setUp() {
+        contactoSim = new ContactoSim(mockClient);
     }
 
     @AfterEach
-    void tearDown()
-    {
+    void tearDown() {
         contactoSim = null;
     }
 
-    // --- --------------- -------------------------------------------------------------------
-    // --- TESTS UNITARIOS -------------------------------------------------------------------
-    // --- --------------- -------------------------------------------------------------------
-
-    // --- Test solicitarSimulation -------------------------------------------------------------------
+    // --- TESTS UNITARIOS ---
 
     @Test
-    void solicitarSimulation()
-    {
-        Map<Integer, Integer> nums = new HashMap<>(); // Datos para los que se sabría el resultado
+    void solicitarSimulation_devuelveTokenCuandoServicioOk() {
+        // Arrange: configurar el mock para que devuelva un token=42
+        SolicitudResponse respuesta = new SolicitudResponse();
+        respuesta.setDone(true);
+        respuesta.setTokenSolicitud(42);
+        when(mockClient.solicitar(anyString(), any(Solicitud.class))).thenReturn(respuesta);
+
+        Map<Integer, Integer> nums = new HashMap<>();
+        nums.put(1, 10);
+        nums.put(2, 5);
         DatosSolicitud sol = new DatosSolicitud(nums);
-        int tok;
 
-        tok = contactoSim.solicitarSimulation(sol);
+        // Act
+        int tok = contactoSim.solicitarSimulation(sol);
 
-        // assert...(): Comprobar si el token es válido
-        // O quizá, descargar datos con el token y comprobar si la simulación devuelve los datos correctos (requiere de
-        // llamar al método descargarDatos)
+        // Assert
+        assertEquals(42, tok);
     }
 
-    // --- Test descargarDatos -------------------------------------------------------------------
-
     @Test
-    void descargarDatos()
-    {
-        int tok = 1; // Token que espera el mock, o quizá, un token generado al solicitar la simulación (requiere de
-                     // llamar al método solicitarSimulation)
-        DatosSimulation sim;
+    void solicitarSimulation_devuelveMinusUnoSiServicioFalla() {
+        when(mockClient.solicitar(anyString(), any(Solicitud.class))).thenReturn(null);
 
-        sim = contactoSim.descargarDatos(tok);
+        int tok = contactoSim.solicitarSimulation(new DatosSolicitud(new HashMap<>()));
 
-        // assert...(): Comprobar si los datos de simulación son los esperados
+        assertEquals(-1, tok);
     }
 
-    // --- Test getEntities -------------------------------------------------------------------
-
     @Test
-    void getEntities()
-    {
-        List<Entidad> entities;
+    void descargarDatos_parsea_rawDataCorrectamente() {
+        ResultsResponse respuesta = new ResultsResponse();
+        respuesta.setDone(true);
+        respuesta.setData("3\n0,1,0,red\n0,1,1,yellow\n1,1,2,red");
+        when(mockClient.obtenerResultados(anyString(), anyInt())).thenReturn(respuesta);
 
-        entities = contactoSim.getEntities();
+        DatosSimulation sim = contactoSim.descargarDatos(99);
 
-        assertEquals(2, entities.size());
-        // assert...(): Comprobar que se devuelven la cantidad de entidades esperadas
-        // También se puede comprobar que sean iguales a las que se esperan
+        assertEquals(3, sim.getAncho());
+        assertEquals(2, sim.getAlto());
+        assertEquals(2, sim.getNumFrames());
+        assertEquals("red",    sim.getFrames().get(0).get(1).get(0));
+        assertEquals("yellow", sim.getFrames().get(0).get(1).get(1));
     }
 
-    // --- Test isValidEntityId -------------------------------------------------------------------
+    @Test
+    void descargarDatos_devuelveVacioSiServicioFalla() {
+        when(mockClient.obtenerResultados(anyString(), anyInt())).thenReturn(null);
+
+        DatosSimulation sim = contactoSim.descargarDatos(1);
+
+        assertEquals(0, sim.getAncho());
+        assertEquals(0, sim.getNumFrames());
+    }
 
     @Test
-    void isValidEntityId()
-    {
-        boolean valid;
+    void getEntities_devuelveListaCorrecta() {
+        List<Entidad> entities = contactoSim.getEntities();
 
-        valid = contactoSim.isValidEntityId();
+        assertEquals(ContactoSim.NOMBRES_ENTIDADES.size(), entities.size());
+        assertEquals("Entidad 1", entities.get(0).getName());
+        assertEquals(1, entities.get(0).getId());
+    }
 
-        // assert...(): No entiendo que hace este método si no recibe un int entidad como parámetro
+    @Test
+    void isValidEntityId_idValidoDevuelveTrue() {
+        assertTrue(contactoSim.isValidEntityId(1));
+        assertTrue(contactoSim.isValidEntityId(2));
+    }
+
+    @Test
+    void isValidEntityId_idInvalidoDevuelveFalse() {
+        assertFalse(contactoSim.isValidEntityId(0));
+        assertFalse(contactoSim.isValidEntityId(999));
     }
 }
